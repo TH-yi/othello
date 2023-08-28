@@ -1,7 +1,9 @@
 from board import Board
 from player import Player, HumanPlayer, AIPlayer
 import sys
+import copy
 import threading
+
 
 
 # 游戏
@@ -9,6 +11,7 @@ class Game(object):
     def __init__(self):
         self.board = Board()
         self.current_player = None
+        self.history = []
 
     # 生成两个玩家
     def make_two_players(self, p = None):
@@ -27,23 +30,23 @@ class Game(object):
                 if p == 0:
                     level_ix = int(
                         input("Please select the level of AI player with O.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=2)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=6)\n"))
+                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
                     player1 = HumanPlayer('X')
                     player2 = AIPlayer('O', level_ix)
                 elif p == 1:
                     level_ix = int(
                         input("Please select the level of AI player with X.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=2)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=6)\n"))
+                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
                     player1 = AIPlayer('X', level_ix)
                     player2 = HumanPlayer('O')
                 else:
                     level_ix = int(
                         input(
                             "Please select the level of AI player with X.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=2)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=6)\n"))
+                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
                     level_iz = int(
                         input("Please select the level of another AI player with O.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=2)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=6)\n"))
+                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
                     player1 = AIPlayer('X', level_ix)
                     player2 = AIPlayer('O', level_iz)
             elif p == 3 :
@@ -52,14 +55,14 @@ class Game(object):
                 print('Wrong input! Game start with mode 1')
                 level_ix = int(
                     input("Please select the level of AI player with O.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=2)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=6)\n"))
+                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
                 player1 = HumanPlayer('X')
                 player2 = AIPlayer('O', level_ix)
         except(TypeError, ValueError):
             print('Wrong input! Game start with mode 0')
             level_ix = int(
                 input("Please select the level of AI player with O.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=3)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=6)\n"))
+                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
             player1 = HumanPlayer('X')
             player2 = AIPlayer('O', level_ix)
 
@@ -90,7 +93,26 @@ class Game(object):
 
             action = self.current_player.think(self.board)  # 当前玩家对棋盘进行思考后，得到招法
 
+            if action == 'regret':
+                if self.history:
+                    last_state, last_action, flipped = self.history.pop()  # 注意这里
+                    self.board = last_state
+                    self.current_player.unmove(self.board, last_action, flipped)
+                    last_state, last_action, flipped = self.history.pop()  # 注意这里
+                    self.board = last_state
+                    self.current_player.unmove(self.board, last_action, flipped)
+                    self.board.print_b()
+                    self.current_player = self.switch_player(player1, player2)
+                    print("Regret!")
+                    continue
+                else:
+                    print("No moves to regret!")
+                    self.current_player = self.switch_player(player1, player2)
+                    continue
+
             if action is not None:
+                flipped = self.current_player.move(self.board, action)
+                self.history.append((copy.deepcopy(self.board), action, flipped))
                 self.current_player.move(self.board, action)  # 当前玩家执行招法，改变棋盘
                 self.board.skip_clear()
 

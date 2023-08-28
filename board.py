@@ -105,10 +105,10 @@ class Board(object):
             rightbottom = board_coord[ix + 9:7 * 8 + (7 - (c - r)) + 1:9]
 
         if r + c <= 7:
-            leftbottom = board_coord[ix + 7:(r + c) * 8:7]
+            leftbottom = board_coord[ix + 7:(r + c) * 8 + 1:7]
             righttop = board_coord[r + c:ix:7]  # 要反转
         else:
-            leftbottom = board_coord[ix + 7:7 * 8 + (r + c) - 7 + 1:7]
+            leftbottom = board_coord[ix + 7:7 * 8 + (r + c) - 6:7]
             righttop = board_coord[((r + c) - 7) * 8 + 7:ix:7]  # 要反转
 
         # 有四个要反转，方便判断

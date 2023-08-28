@@ -1,5 +1,5 @@
 import sys
-import json
+import random
 import numpy as np
 import threading
 from board import Board
@@ -22,6 +22,7 @@ class AI(object):
             [-25, -45, 1, 1, 1, 1, -45, -25],
             [500, -25, 10, 5, 5, 10, -25, 500]
         ]
+        self.transposition_table = {}  # 置换表
 
     # 评估函数（仅根据棋盘位置权重）
     def evaluate(self, board, color):
@@ -50,12 +51,11 @@ class AI(object):
 
     def super_evaluate(self, board, color):
         uncolor = ['X', 'O'][color == 'X']
-        '''super_score1='''
-        super_score = int(self.evaluate(board, color)) + 10 * int((self.getstable(board, color))) - 5 * int(
-            (self.getmoves(board, uncolor)))
+
+        super_score = int(self.evaluate(board, color)) + 10 * int((self.getstable(board, color))) + 10* int(
+            self.getmoves(board, color))- 10* int(self.getmoves(board, uncolor))
 
         return super_score
-
 
 
     # AI的大脑
@@ -94,7 +94,7 @@ class AI(object):
                 print("Terminate mode, space left:", ten_ending)
                 _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
             else:
-                _, action = self.Pre_Search_AlphaBeta(board, opponent, depth + 4)
+               _, action = self.Pre_Search_AlphaBeta(board, opponent, depth + 5)
         # assert action is not None, 'action is None'
         return action
 
@@ -289,7 +289,7 @@ class AI(object):
             if depth == 3:
                 action_letter = chr(ord('A') + action[1])
                 action_b = action_letter + str(action[0] + 1)
-                print('If intermediate AI action is', action_b, ', the board value will be', score,'at most.')
+                print('If intermediate AI action is', action_b, ', the board value will be', score,'.')
             if score > best_score:
                 best_score = score
                 best_action = action
@@ -299,8 +299,7 @@ class AI(object):
             print('The best action is', action_a, ', the best value is', best_score)
         return best_score, best_action
 
-    def minimax_n(self, board, opfor, depth=3):  # 无print版本,服务于预剪枝算法
-
+    def minimax_n(self, board, opfor, depth=2):  # 无print版本,服务于预剪枝算法
         color = self.color
 
         if depth == 0:
@@ -310,16 +309,14 @@ class AI(object):
         if not action_list:
             return self.super_evaluate(board, color), None
 
-        best_score = -100000
+        best_score = -float('inf')  # 修改初始化值
         best_action = None
 
         for action in action_list:
-            flipped_pos = self.move(board, action)  # 落子
-            score, _ = opfor.minimax(board, self, depth - 1)  # 深度优先，轮到陪练
-            self.unmove(board, action, flipped_pos)  # 回溯
+            flipped_pos = self.move(board, action)
+            score, _ = opfor.minimax_n(board, self, depth - 1)  # 修改递归调用
+            self.unmove(board, action, flipped_pos)
             score = -score
-            '''if depth>1:
-                print (depth)'''
 
             if score > best_score:
                 best_score = score
@@ -358,7 +355,7 @@ class AI(object):
             if depth == 5:
                 action_letter = chr(ord('A') + action[1])
                 action_b = action_letter + str(action[0] + 1)
-                print('If advanced AI action is', action_b, ', the board value will be', score, 'at most.')
+                print('If advanced AI action is', action_b, ', the board value will be', score, '.')
 
             # Alpha-Beta剪枝
             if best_score >= beta:
@@ -372,7 +369,7 @@ class AI(object):
 
         return best_score, best_action
 
-    def Pre_Search_AlphaBeta(self, board, opfor, depthm=6, alpha=-float('inf'), beta=float('inf')):
+    def Pre_Search_AlphaBeta(self, board, opfor, depthm=7, alpha=-float('inf'), beta=float('inf')):
         color = self.color
 
         if depthm == 0:
@@ -383,17 +380,20 @@ class AI(object):
             return self.super_evaluate(board, color), None
 
         # 预搜索优化，仅在深度大于5时执行
-        if depthm > 4:
+        if depthm > 5:
             Values = []
             for action in action_list:
                 flipped_pos = self.move(board, action)
-                value, _ = opfor.minimax_n(board, self, 3)  # 假定minimax_n是一个浅层搜索的版本
+                value, _ = opfor.minimax_n(board, self, 2)  # 假定minimax_n是一个浅层搜索的版本
                 self.unmove(board, action, flipped_pos)
                 Values.append(value)
-            ind = np.argsort(Values)[-8:]  # 仅取最高的8个走法
+                # 获取要考虑的走法数量，最多为8，但不超过实际走法数量
+            num_actions_to_consider = min(8, len(action_list))
+
+            ind = np.argsort(Values)[-num_actions_to_consider:]  # 仅取最高的num_actions_to_consider个走法
             action_list = [action_list[i] for i in ind]
 
-        best_score = alpha
+        best_score = -100000
         best_action = None
 
         for action in action_list:
@@ -403,19 +403,22 @@ class AI(object):
 
             score = -score
 
-            if depthm == 6:
-                action_letter = chr(ord('A') + action[1])
-                action_b = action_letter + str(action[0] + 1)
-                print(f'If master AI action is {action_b}, the board value will be {score} at most.')
-
+            # 更新最佳得分和动作
             if score > best_score:
                 best_score = score
                 best_action = action
-                if best_score >= beta:
-                    break
-                alpha = max(alpha, best_score)
 
-        if depthm == 6 and best_action:
+            if depthm == 7:
+                action_letter = chr(ord('A') + action[1])
+                action_b = action_letter + str(action[0] + 1)
+                print(f'If master AI action is {action_b}, the board value will be {score}.')
+
+            # Alpha-Beta剪枝
+            if best_score >= beta:
+                break
+            alpha = max(alpha, best_score)
+
+        if depthm == 7 and best_action:
             action_letter = chr(ord('A') + best_action[1])
             action_a = action_letter + str(best_action[0] + 1)
             print(f'The best action is {action_a}, the best value is {best_score}')
@@ -447,7 +450,7 @@ class AI(object):
             if depth == maxdeep:
                 action_letter = chr(ord('A') + action[1])
                 action_b = action_letter + str(action[0] + 1)
-                print('[terminate]If AI action is', action_b, ', the board absolute value will be', score,'at most.')
+                print('[terminate]If AI action is', action_b, ', the board absolute value will be', score,'.')
             if score > best_score:
                 best_score = score
                 best_action = action

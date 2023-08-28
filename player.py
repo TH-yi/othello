@@ -27,12 +27,30 @@ class HumanPlayer(Player):
 
     def think(self, board):
         while True:
-            action = input("Turn to '{}'. \nPlease input a point.(such as 'D3'): ".format(self.color))  # A1~H8
+            action = input(
+                "Turn to '{}'. \nPlease input a point(such as 'D3'), input 'r' to regret: ".format(self.color))
+            if action.lower() == 'r' or action.lower() == 'regret':
+                return 'regret'
+
+            if len(action) < 2:  # Check to make sure action has at least two characters before extracting
+                print("Invalid action. Please try again.")
+                continue
+
             r, c = action[1], action[0].upper()
-            if r in '12345678' and c in 'ABCDEFGH':  # 合法性检查1
-                x, y = '12345678'.index(r), 'ABCDEFGH'.index(c)
-                if (x, y) in list(board.get_legal_actions(self.color)):  # 合法性检查2
-                    return x, y
+
+            # Legality check 1
+            if r not in '12345678' or c not in 'ABCDEFGH':
+                print("Invalid action. Please enter a valid point between A1 and H8.")
+                continue
+
+            x, y = '12345678'.index(r), 'ABCDEFGH'.index(c)
+
+            # Legality check 2
+            if (x, y) not in list(board.get_legal_actions(self.color)):
+                print("Invalid action. The chosen point is not a legal move.")
+                continue
+
+            return x, y
 
 
 # 电脑玩家（多重继承）
