@@ -29,42 +29,100 @@ class Game(object):
 
                 if p == 0:
                     level_ix = int(
-                        input("Please select the level of AI player with O.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=2)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
-                    player1 = HumanPlayer('X')
-                    player2 = AIPlayer('O', level_ix)
+                        input("Please select the level of AI player with O.\n\t0: Beginner (Greedy algorithm, depth=1)\n\t1: Basic (Greedy algorithm with weights map, depth=1)\n\t2: Intermediate (Minimax Algorithm, depth=2)\n\t3: "
+                              "Advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: Master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n\t5: Crazy (Monte Carlo Algorithm, iterations=3000 (level 3))\n\t6: Customized (Monte Carlo Algorithm with customized iterations)\n"))
+                    if level_ix == 6:  # If user chose customized difficulty
+                        custom_difficulty = int(input("Please select the custom difficulty (1-10): "))
+                        if 1 <= custom_difficulty <= 10:
+                            custom_iterations = custom_difficulty * 1000
+                        else:
+                            print("Invalid difficulty. Setting difficulty to 1.")
+                            custom_iterations = 1000  # Default value for difficulty 1
+
+                        player1 = HumanPlayer('X')
+                        player2 = AIPlayer('O', level_ix)
+                        player2.set_custom_iterations(custom_iterations)  # Set custom iterations for the AI player
+                    else:
+                        player1 = HumanPlayer('X')
+                        player2 = AIPlayer('O', level_ix)
                 elif p == 1:
                     level_ix = int(
-                        input("Please select the level of AI player with X.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=2)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
-                    player1 = AIPlayer('X', level_ix)
-                    player2 = HumanPlayer('O')
+                        input("Please select the level of AI player with X.\n\t0: Beginner (Greedy algorithm, depth=1)\n\t1: Basic (Greedy algorithm with weights map, depth=1)\n\t2: Intermediate (Minimax Algorithm, depth=2)\n\t3: "
+                              "Advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: Master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n\t5: Crazy (Monte Carlo Algorithm, iterations=3000 (level 3))\n\t6: Customized (Monte Carlo Algorithm with customized iterations)\n"))
+                    if level_ix == 6:  # If user chose customized difficulty
+                        custom_difficulty = int(input("Please select the custom difficulty (1-10): "))
+                        if 1 <= custom_difficulty <= 10:
+                            custom_iterations = custom_difficulty * 1000
+                        else:
+                            print("Invalid difficulty. Setting difficulty to 1.")
+                            custom_iterations = 1000  # Default value for difficulty 1
+
+                        player2 = HumanPlayer('X')
+                        player1 = AIPlayer('O', level_ix)
+                        player1.set_custom_iterations(custom_iterations)  # Set custom iterations for the AI player
+                    else:
+
+                        player1 = AIPlayer('X', level_ix)
+                        player2 = HumanPlayer('O')
                 else:
                     level_ix = int(
                         input(
-                            "Please select the level of AI player with X.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=2)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
+                            "Please select the level of AI player with X.\n\t0: Beginner (Greedy algorithm, depth=1)\n\t1: Basic (Greedy algorithm with weights map, depth=1)\n\t2: Intermediate (Minimax Algorithm, depth=2)\n\t3: "
+                              "Advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: Master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n\t5: Crazy (Monte Carlo Algorithm, iterations=3000 (level 3))\n\t6: Customized (Monte Carlo Algorithm with customized iterations)\n"))
+                    if level_ix == 6:  # If user chose customized difficulty
+                        custom_difficulty = int(input("Please select the custom difficulty (1-10): "))
+                        if 1 <= custom_difficulty <= 10:
+                            custom_iterations = custom_difficulty * 1000
+                        else:
+                            print("Invalid difficulty. Setting difficulty to 1.")
+                            custom_iterations = 1000  # Default value for difficulty 1
+
+                        player1 = AIPlayer('X', level_ix)
+                        player1.set_custom_iterations(custom_iterations)  # Set custom iterations for the AI player
+                    else:
+                        player1 = AIPlayer('X', level_ix)
                     level_iz = int(
-                        input("Please select the level of another AI player with O.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=2)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
-                    player1 = AIPlayer('X', level_ix)
-                    player2 = AIPlayer('O', level_iz)
+                        input("Please select the level of another AI player with O.\n\t0: Beginner (Greedy algorithm, depth=1)\n\t1: Basic (Greedy algorithm with weights map, depth=1)\n\t2: Intermediate (Minimax Algorithm, depth=2)\n\t3: "
+                              "Advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: Master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n\t5: Crazy (Monte Carlo Algorithm, iterations=3000 (level 3))\n\t6: Customized (Monte Carlo Algorithm with customized iterations)\n"))
+                    if level_iz == 6:  # If user chose customized difficulty
+                        custom_difficulty = int(input("Please select the custom difficulty (1-10): "))
+                        if 1 <= custom_difficulty <= 10:
+                            custom_iterations = custom_difficulty * 1000
+                        else:
+                            print("Invalid difficulty. Setting difficulty to 1.")
+                            custom_iterations = 1000  # Default value for difficulty 1
+                        player2 = AIPlayer('O', level_iz)
+                        player2.set_custom_iterations(custom_iterations)  # Set custom iterations for the AI player
+                    else:
+                        player2 = AIPlayer('O', level_iz)
             elif p == 3 :
                 player1, player2 = HumanPlayer('X'), HumanPlayer('O')  # 先手执X，后手执O
             else:
                 print('Wrong input! Game start with mode 1')
                 level_ix = int(
-                    input("Please select the level of AI player with O.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=2)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
+                    input("Please select the level of AI player with O.\n\t0: Beginner (Greedy algorithm, depth=1)\n\t1: Basic (Greedy algorithm with weights map, depth=1)\n\t2: Intermediate (Minimax Algorithm, depth=2)\n\t3: "
+                              "Advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: Master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n\t5: Crazy (Monte Carlo Algorithm, iterations=3000 (level 3))\n\t6: Customized (Monte Carlo Algorithm with customized iterations)\n"))
                 player1 = HumanPlayer('X')
                 player2 = AIPlayer('O', level_ix)
         except(TypeError, ValueError):
             print('Wrong input! Game start with mode 0')
             level_ix = int(
-                input("Please select the level of AI player with O.\n\t0: beginner (Greedy algorithm, depth=1)\n\t1: basic (Greedy algorithm with weights map, depth=1)\n\t2: intermediate (Minimax Algorithm, depth=3)\n\t3: "
-                              "advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n"))
-            player1 = HumanPlayer('X')
-            player2 = AIPlayer('O', level_ix)
+                input("Please select the level of AI player with O.\n\t0: Beginner (Greedy algorithm, depth=1)\n\t1: Basic (Greedy algorithm with weights map, depth=1)\n\t2: Intermediate (Minimax Algorithm, depth=3)\n\t3: "
+                              "Advanced (Minimax Algorithm with α-β Pruning, depth=5)\n\t4: Master (Minimax Algorithm with Pre-Search α-β Pruning, depth=7)\n\t5: Crazy (Monte Carlo Algorithm, iterations=3000 (level 3))\n\t6: Customized (Monte Carlo Algorithm with customized iterations)\n"))
+            if level_ix == 6:  # If user chose customized difficulty
+                custom_difficulty = int(input("Please select the custom difficulty (1-10): "))
+                if 1 <= custom_difficulty <= 10:
+                    custom_iterations = custom_difficulty * 1000
+                else:
+                    print("Invalid difficulty. Setting difficulty to 1.")
+                    custom_iterations = 1000  # Default value for difficulty 1
+
+                player1 = HumanPlayer('X')
+                player2 = AIPlayer('O', level_ix)
+                player2.set_custom_iterations(custom_iterations)  # Set custom iterations for the AI player
+            else:
+                player1 = HumanPlayer('X')
+                player2 = AIPlayer('O', level_ix)
 
         return player1, player2
 

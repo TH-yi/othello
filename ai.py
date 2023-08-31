@@ -3,14 +3,16 @@ import random
 import numpy as np
 import threading
 from board import Board
+import copy
+from math import sqrt, log
+
 
 sys.setrecursionlimit(100000)
-
 
 class AI(object):
     def __init__(self, level_ix=0):
         # 玩家等级
-        self.level = ['beginner', 'basic','intermediate', 'advanced', 'master'][level_ix]
+        self.level = ['beginner', 'basic','intermediate', 'advanced', 'master', 'crazy', 'customized'][level_ix]
         # 棋盘位置权重
         self.board_weights = [
             [500, -25, 10, 5, 5, 10, -25, 500],
@@ -23,6 +25,175 @@ class AI(object):
             [500, -25, 10, 5, 5, 10, -25, 500]
         ]
         self.transposition_table = {}  # 置换表
+
+    class TreeNode(object):
+        def __init__(self, state, parent=None, action=None):
+            self.state = state
+            self.parent = parent
+            self.action = action
+            self.children = []
+            self.wins = 0
+            self.visits = 0
+
+        def select_child(self):
+            """选择UCB1值最高的子节点"""
+            s = sorted(self.children, key=lambda c: c.wins / (c.visits + 1e-10) + sqrt(2 * log(self.visits + 1e-10) / (c.visits + 1e-10)))
+            return s[-1]
+
+        def add_child(self, node):
+            self.children.append(node)
+
+    def set_custom_iterations(self, num):
+        self.custom_iterations = num
+
+    # AI的大脑
+    def brain(self, board, opponent, depth):
+        if self.level == 'beginner':  # 入门水平
+            ten_ending = self.is_endgame(board)
+            if ten_ending:
+                print("Terminate mode, space left:", ten_ending)
+                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            else:
+                _, action = self.naive(board)
+        elif self.level == 'basic':  # 初级水平
+            ten_ending = self.is_endgame(board)
+            if ten_ending:
+                print("Terminate mode, space left:", ten_ending)
+                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            else:
+                _, action = self.greedy(board)
+        elif self.level == 'intermediate':  # 中级水平
+            ten_ending = self.is_endgame(board)
+            if ten_ending:
+                print("Terminate mode, space left:", ten_ending)
+                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            else:
+                _, action = self.minimax(board, opponent, depth + 1)
+        elif self.level == 'advanced':  # 高级水平
+            ten_ending = self.is_endgame(board)
+            if ten_ending:
+                print("Terminate mode, space left:", ten_ending)
+                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            else:
+                _, action = self.minimax_alpha_beta(board, opponent, depth + 3)
+        elif self.level == 'master':  # 大师水平
+            ten_ending = self.is_endgame(board)
+            if ten_ending:
+                print("Terminate mode, space left:", ten_ending)
+                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            else:
+                _, action = self.Pre_Search_AlphaBeta(board, opponent, depth + 5)
+
+        elif self.level == 'crazy':
+            ten_ending = self.is_endgame(board)
+            if ten_ending:
+                print("Terminate mode, space left:", ten_ending)
+                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            else:
+                action = self.MCTS(board, 3000)
+
+        elif self.level == 'customized':  # Check for customized level
+            ten_ending = self.is_endgame(board)
+            if ten_ending:
+                print("Terminate mode, space left:", ten_ending)
+                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            else:
+                action = self.MCTS(board, self.custom_iterations)  # Use the custom number of iterations
+
+        # assert action is not None, 'action is None'
+        return action
+
+    def MCTS(self, board, iterations):
+        root = self.TreeNode(board)
+        level_crz = iterations // 1000
+        legal_actions = list(root.state.get_legal_actions(self.color))
+        # Check for 0 or 1 legal action
+        if len(legal_actions) == 0:
+            print('For crazy AI level ' + str(level_crz) + ', action is skip!')
+            return None
+        elif len(legal_actions) == 1:
+            action_only = legal_actions[0]
+            action_letter = chr(ord('A') + action_only[1])
+            action_b = action_letter + str(action_only[0] + 1)
+            print('For crazy AI level ' + str(level_crz) + ', the only action is ' + str(action_b))
+            return action_only
+
+        for _ in range(iterations):
+            node = root
+            # Selection
+            while len(node.children) == len(list(node.state.get_legal_actions(self.color))) and node.children:
+                node = node.select_child()
+
+            # Expansion
+            legal_actions = list(node.state.get_legal_actions(self.color))
+            for action in legal_actions:
+                if action not in [child.action for child in node.children]:
+                    new_board = copy.deepcopy(node.state)
+                    new_board._move(action, self.color)
+                    node.add_child(self.TreeNode(new_board, parent=node, action=action))
+
+            # Simulation
+            current_board = copy.deepcopy(node.state)
+            current_color = self.color
+            while list(current_board.get_legal_actions(current_color)) or list(current_board.get_legal_actions(
+                    'X' if current_color == 'O' else 'O')):
+                current_actions = list(current_board.get_legal_actions(current_color))
+                if not current_actions:
+                    current_color = 'X' if current_color == 'O' else 'O'
+                    continue
+                action = random.choice(current_actions)
+                current_board._move(action, current_color)
+                current_color = 'X' if current_color == 'O' else 'O'
+
+            # Backpropagation
+            result = self.evaluate(current_board, self.color)
+            while node:
+                node.visits += 1
+                if result > 0:  # Modify this to fit your evaluation
+                    node.wins += 1
+                node = node.parent
+        # 这里移动打印代码，只在所有模拟完成后打印一次
+        total_score = sum([child.wins / child.visits if child.visits != 0 else 0 for child in root.children])
+
+        weighted_actions = []
+
+        for child in root.children:
+            action = child.action
+            score = child.wins / child.visits if child.visits != 0 else 0
+            weight = score / total_score if total_score != 0 else 0
+            weight_squared = (10*weight) ** 4
+            weighted_actions.append((action, weight_squared))
+
+
+        # 重新计算权重，使其和为1
+        weight_sum = sum([weight for _, weight in weighted_actions])
+        if weight_sum == 0:
+            try:
+                action_only = sorted(root.children, key=lambda c: c.visits)[-1].action
+                action_letter = chr(ord('A') + action_only[1])
+                action_b = action_letter + str(action_only[0] + 1)
+                print('For crazy AI level ' + str(level_crz) + ', the only action is ' + str(action_b))
+                return action_only
+            except:
+                print('For crazy AI level ' + str(level_crz) + ', action is skip!')
+                return None
+        else:
+            for idx, (action, weight) in enumerate(weighted_actions):
+                weighted_actions[idx] = (action, weight / weight_sum)
+
+            weighted_actions.sort(key=lambda x: x[1], reverse=True)
+            for action, weight in weighted_actions:
+                formatted_weight = "{:.3%}".format(weight)
+                action_letter = chr(ord('A') + action[1])
+                action_b = action_letter + str(action[0] + 1)
+                print('For crazy AI level ' + str(level_crz) + ', action '+ str(action_b) +  ' weight is', formatted_weight)
+
+            best_action, best_weight = weighted_actions[0]
+            best_action_letter = chr(ord('A') + best_action[1])
+            best_action_str = best_action_letter + str(best_action[0] + 1)
+            print('The best action is ' + str(best_action_str)+ ', its weight is', "{:.3%}".format(best_weight))
+
+            return best_action
 
     # 评估函数（仅根据棋盘位置权重）
     def evaluate(self, board, color):
@@ -52,51 +223,10 @@ class AI(object):
     def super_evaluate(self, board, color):
         uncolor = ['X', 'O'][color == 'X']
 
-        super_score = int(self.evaluate(board, color)) + 10 * int((self.getstable(board, color))) + 10* int(
-            self.getmoves(board, color))- 10* int(self.getmoves(board, uncolor))
+        super_score = int(self.evaluate(board, color)) + 10 * int((self.getstable(board, color))) + 15* int(
+            self.getmoves(board, color))- 15* int(self.getmoves(board, uncolor))
 
         return super_score
-
-
-    # AI的大脑
-    def brain(self, board, opponent, depth):
-        if self.level == 'beginner':  # 入门水平
-            ten_ending = self.is_endgame(board)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
-            else:
-                 _, action = self.naive(board)
-        elif  self.level == 'basic':  # 初级水平
-            ten_ending = self.is_endgame(board)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
-            else:
-                _, action = self.greedy(board)
-        elif self.level == 'intermediate':  # 中级水平
-            ten_ending = self.is_endgame(board)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
-            else:
-                _, action = self.minimax(board, opponent, depth + 1)
-        elif self.level == 'advanced':  # 高级水平
-            ten_ending = self.is_endgame(board)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
-            else:
-                _, action = self.minimax_alpha_beta(board, opponent, depth + 3)
-        elif self.level == 'master': #大师水平
-            ten_ending = self.is_endgame(board)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
-            else:
-               _, action = self.Pre_Search_AlphaBeta(board, opponent, depth + 5)
-        # assert action is not None, 'action is None'
-        return action
 
     # 行动力统计,为高级评估函数做准备
     def getmoves(self, board, color):
@@ -226,10 +356,10 @@ class AI(object):
 
             action_letter = chr(ord('A') + action[1])
             action_b = action_letter + str(action[0] + 1)
-            print('If beginner AI action is', action_b, ', the board value will be', score)
+            print('If beginner AI action is '+ str(action_b) +  ', the board value will be', score)
         action_letter = chr(ord('A') + best_action[1])
         action_a = action_letter + str(best_action[0] + 1)
-        print('The best action is', action_a, ', the best value is', best_score)
+        print('The best action is '+ str(action_a) +  ', the best value is', best_score)
 
         return best_score, best_action
 
@@ -256,10 +386,10 @@ class AI(object):
 
             action_letter = chr(ord('A') + action[1])
             action_b = action_letter + str(action[0] + 1)
-            print('If basic AI action is', action_b, ', the board value will be', score)
+            print('If basic AI action is '+ str(action_b) +  ', the board value will be', score)
         action_letter = chr(ord('A') + best_action[1])
         action_a = action_letter + str(best_action[0] + 1)
-        print('The best action is', action_a, ', the best value is', best_score)
+        print('The best action is '+ str(action_a) +  ', the best value is', best_score)
 
         return best_score, best_action
 
@@ -289,14 +419,14 @@ class AI(object):
             if depth == 3:
                 action_letter = chr(ord('A') + action[1])
                 action_b = action_letter + str(action[0] + 1)
-                print('If intermediate AI action is', action_b, ', the board value will be', score,'.')
+                print('If intermediate AI action is '+ str(action_b) +  ', the board value will be', score,'.')
             if score > best_score:
                 best_score = score
                 best_action = action
         if depth == 3:
             action_letter = chr(ord('A') + best_action[1])
             action_a = action_letter + str(best_action[0] + 1)
-            print('The best action is', action_a, ', the best value is', best_score)
+            print('The best action is '+ str(action_a) +  ', the best value is', best_score)
         return best_score, best_action
 
     def minimax_n(self, board, opfor, depth=2):  # 无print版本,服务于预剪枝算法
@@ -355,7 +485,7 @@ class AI(object):
             if depth == 5:
                 action_letter = chr(ord('A') + action[1])
                 action_b = action_letter + str(action[0] + 1)
-                print('If advanced AI action is', action_b, ', the board value will be', score, '.')
+                print('If advanced AI action is '+ str(action_b) +  ', the board value will be', score, '.')
 
             # Alpha-Beta剪枝
             if best_score >= beta:
@@ -365,7 +495,7 @@ class AI(object):
         if depth == 5 and best_action:
             action_letter = chr(ord('A') + best_action[1])
             action_a = action_letter + str(best_action[0] + 1)
-            print('The best action is', action_a, ', the best value is', best_score)
+            print('The best action is '+ str(action_a) +  ', the best value is', best_score)
 
         return best_score, best_action
 
@@ -396,27 +526,31 @@ class AI(object):
         best_score = -100000
         best_action = None
 
-        for action in action_list:
-            flipped_pos = self.move(board, action)
-            score, _ = opfor.Pre_Search_AlphaBeta(board, self, depthm - 1, -beta, -alpha)
-            self.unmove(board, action, flipped_pos)
+        if len(action_list) ==1:
+            best_action = action_list[0]
+            best_score = 0
+        else:
+            for action in action_list:
+                flipped_pos = self.move(board, action)
+                score, _ = opfor.Pre_Search_AlphaBeta(board, self, depthm - 1, -beta, -alpha)
+                self.unmove(board, action, flipped_pos)
 
-            score = -score
+                score = -score
 
-            # 更新最佳得分和动作
-            if score > best_score:
-                best_score = score
-                best_action = action
+                # 更新最佳得分和动作
+                if score > best_score:
+                    best_score = score
+                    best_action = action
 
-            if depthm == 7:
-                action_letter = chr(ord('A') + action[1])
-                action_b = action_letter + str(action[0] + 1)
-                print(f'If master AI action is {action_b}, the board value will be {score}.')
+                if depthm == 7:
+                    action_letter = chr(ord('A') + action[1])
+                    action_b = action_letter + str(action[0] + 1)
+                    print(f'If master AI action is {action_b}, the board value will be {score}.')
 
-            # Alpha-Beta剪枝
-            if best_score >= beta:
-                break
-            alpha = max(alpha, best_score)
+                # Alpha-Beta剪枝
+                if best_score >= beta:
+                    break
+                alpha = max(alpha, best_score)
 
         if depthm == 7 and best_action:
             action_letter = chr(ord('A') + best_action[1])
@@ -450,12 +584,13 @@ class AI(object):
             if depth == maxdeep:
                 action_letter = chr(ord('A') + action[1])
                 action_b = action_letter + str(action[0] + 1)
-                print('[terminate]If AI action is', action_b, ', the board absolute value will be', score,'.')
+                print('[terminate]If AI action is '+ str(action_b) +  ', the board absolute value will be', score,'.')
             if score > best_score:
                 best_score = score
                 best_action = action
         if depth == maxdeep:
             action_letter = chr(ord('A') + best_action[1])
             action_a = action_letter + str(best_action[0] + 1)
-            print('The best action is', action_a, ', the best value is', best_score)
+            print('The best action is '+ str(action_a) +  ', the best value is', best_score)
         return best_score, best_action
+
