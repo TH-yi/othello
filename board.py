@@ -43,7 +43,9 @@ class Board(object):
                     s1 += 1
                 if self._board[i][j] == 'O':
                     s2 += 1
-        print('X:O', s1, s2)
+        diff = s1 - s2
+        sign = '+' if diff > 0 else ''
+        print(f'X:O {s1}:{s2} ({sign}{abs(diff)})')
         if s1 > s2:
             return 0  # 黑胜
         elif s1 < s2:

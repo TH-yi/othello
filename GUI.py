@@ -48,7 +48,8 @@ class OthelloGUI(tk.Tk):
     def on_square_click(self, event):
         if isinstance(self.current_player, HumanPlayer):
             col, row = event.x // 40, event.y // 40
-            if self.current_player.get_move((row, col)):
+            move = self.current_player.think((row, col))  # Changed this line
+            if move:
                 self.update_board()
                 self.switch_player()
                 self.play_turn()

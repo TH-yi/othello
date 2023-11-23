@@ -7,12 +7,12 @@ import copy
 from math import sqrt, log
 
 
-sys.setrecursionlimit(100000)
+sys.setrecursionlimit(1000000000)
 
 class AI(object):
     def __init__(self, level_ix=0):
         # 玩家等级
-        self.level = ['beginner', 'basic','intermediate', 'advanced', 'master', 'crazy', 'customized'][level_ix]
+        self.level = ['beginner', 'basic','intermediate', 'advanced', 'master', 'crazy', 'customized', 'text'][level_ix]
         # 棋盘位置权重
         self.board_weights = [
             [500, -25, 10, 5, 5, 10, -25, 500],
@@ -24,7 +24,9 @@ class AI(object):
             [-25, -45, 1, 1, 1, 1, -45, -25],
             [500, -25, 10, 5, 5, 10, -25, 500]
         ]
+        self.weight = [6, 11, 2, 2, 3]
         self.transposition_table = {}  # 置换表
+        self.memo = {} #stable cache
 
     class TreeNode(object):
         def __init__(self, state, parent=None, action=None):
@@ -49,21 +51,21 @@ class AI(object):
     # AI的大脑
     def brain(self, board, opponent, depth):
         if self.level == 'beginner':  # 入门水平
-            ten_ending = self.is_endgame(board)
+            ten_ending = self.is_endgame(board, space = 7)
             if ten_ending:
                 print("Terminate mode, space left:", ten_ending)
                 _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
             else:
                 _, action = self.naive(board)
         elif self.level == 'basic':  # 初级水平
-            ten_ending = self.is_endgame(board)
+            ten_ending = self.is_endgame(board, space = 8)
             if ten_ending:
                 print("Terminate mode, space left:", ten_ending)
                 _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
             else:
                 _, action = self.greedy(board)
         elif self.level == 'intermediate':  # 中级水平
-            ten_ending = self.is_endgame(board)
+            ten_ending = self.is_endgame(board, space = 9)
             if ten_ending:
                 print("Terminate mode, space left:", ten_ending)
                 _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
@@ -100,6 +102,13 @@ class AI(object):
             else:
                 action = self.MCTS(board, self.custom_iterations)  # Use the custom number of iterations
 
+        elif self.level == 'text':  # 大师水平
+            ten_ending = self.is_endgame(board)
+            if ten_ending:
+                print("Terminate mode, space left:", ten_ending)
+                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            else:
+                _, action = self.nPre_Search_AlphaBeta(board, opponent, 15)
         # assert action is not None, 'action is None'
         return action
 
@@ -222,114 +231,99 @@ class AI(object):
 
     def super_evaluate(self, board, color):
         uncolor = ['X', 'O'][color == 'X']
+        # 计算前沿子
+        frontier = 0
+        for row in range(8):
+            for col in range(8):
+                if board[row][col] == 0:
+                    continue
+                # 检查周围的8个方向
+                for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                    new_row, new_col = row + dr, col + dc
+                    if 0 <= new_row < 8 and 0 <= new_col < 8 and board[new_row][new_col] == 0:
+                        frontier -= board[row][col]
+                        break
 
-        super_score = int(self.evaluate(board, color)) + 10 * int((self.getstable(board, color))) + 15* int(
+        # 计算奇偶性
+        parity = 0
+        if self.getmoves(board, color) + self.getmoves(board, uncolor) < 18:
+            parity = 1 if (self.getmoves(board, color) + self.getmoves(board, uncolor)) % 2 == 0 else -1
+
+        rv = frontier * self.weight[2] +  parity * self.weight[4]
+        super_score = int(rv) + int(self.evaluate(board, color)) + 7 * int((self.getstable(board, color))) - 7 * int((self.getstable(board, uncolor))) + 15* int(
             self.getmoves(board, color))- 15* int(self.getmoves(board, uncolor))
 
         return super_score
 
+    def nsuper_evaluate(self, board, color):
+        uncolor = ['X', 'O'][color == 'X']
+
+        # 计算棋盘上的棋子数量来确定轮数
+        round = sum([row.count('X') + row.count('O') for row in board])
+
+        # 计算前沿子
+        frontier = 0
+        for row in range(8):
+            for col in range(8):
+                if board[row][col] == color:
+                    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                        new_row, new_col = row + dr, col + dc
+                        if 0 <= new_row < 8 and 0 <= new_col < 8 and board[new_row][new_col] == uncolor:
+                            frontier -= 1
+                            break
+
+        # 计算奇偶性
+        parity = 0
+        total_moves = self.getmoves(board, color) + self.getmoves(board, uncolor)
+        if total_moves < 18:
+            parity = 1 if total_moves % 2 == 0 else -1
+
+        # 轮数相关的权重
+        a1 = (64.0 - round) / 64.0
+        a2 = (64.0 - round) / 64.0
+        a3 = round / 64.0 * 10
+        a4 = 1 / ((round - 32) * (round - 32) + 0.1)
+
+        rv = a1 * frontier * self.weight[2] + a2 * parity * self.weight[4]
+        super_score = int(rv) + int(a3 * self.evaluate(board, color)) + 10 * int(a4 * self.getstable(board, color)) + 15 * int(
+            self.getmoves(board, color)) - 15 * int(self.getmoves(board, uncolor))
+
+        return super_score
     # 行动力统计,为高级评估函数做准备
     def getmoves(self, board, color):
         moves = len(list(board.get_legal_actions(color)))
         return moves
 
+    def is_stable(self, board, color, i, j):
+        if board[i][j] != color:
+            return False
 
+        # Check horizontal stability
+        left_stable = all(board[x][j] == color for x in range(i))
+        right_stable = all(board[x][j] == color for x in range(i + 1, 8))
 
-    def stability(self, board, color, i, j):
-        uncolor = ['X', 'O'][color == 'X']
-        a = 0  # 四个方向稳定计数器,a=4稳定
-        if board[i][j] == color:  # 判定是否为己方棋子
-            if i == 0 or i == 7 or j == 0 or j == 7:
-                for site in range(4):  # 检测四个方向是否都稳定
+        # Check vertical stability
+        up_stable = all(board[i][y] == color for y in range(j))
+        down_stable = all(board[i][y] == color for y in range(j + 1, 8))
 
-                    if site == 0:  # 统计横行方向,以检测该棋子是否"行不可翻"
-                        if i == 0 or i == 7:  # 如果横行接边界,横行满足(左右边界棋子不可能被横杀),a+1
-                            a += 1
-
-                        else:
-                            b = 0
-                            for site_a in range(i):  # 检测左侧是否都为己方稳定
-                                if board[site_a][j] != color:  # 检测左侧是否都为己方
-                                    break
-                                if self.stability(board, color, site_a, j) == 0:  # 检测左侧是否都为稳定
-                                    break
-                                if site_a == i - 1:
-                                    a += 1
-                                    b += 1
-                            if b == 0:  # 如果左侧不为己方稳定,检测右边
-                                for site_b in range(i + 1, 8):  # 检测右侧是否都为己方稳定
-                                    if board[site_b][j] != color:  # 检测右侧是否都为己方
-                                        break
-                                    if self.stability(board, color, site_b, j) == 0:  # 检测右侧是否都为稳定
-                                        break
-                                    if site_b == 7:
-                                        a += 1
-                                        b += 1
-                            if b == 0:  # 如果左右都不全为己方稳定,检测整行是否为敌方稳定
-                                for site_c in range(8):
-                                    if site_c != i:
-                                        if board[site_c][j] != uncolor:  # 检测整行是否都为敌方
-                                            break
-                                        if self.stability(board, uncolor, site_c, j) == 0:  # 检测整行是否都为敌方稳定
-                                            break
-                                        if site_c == 7:
-                                            a += 1
-
-                    if site == 1:  # 统计竖行方向,以检测该棋子是否"列不可翻"
-                        if j == 0 or j == 7:  # 如果竖行接边界,竖列满足(上下边界棋子不可能被竖杀),a+1
-                            a += 1
-
-                        else:
-                            b = 0
-                            for site_d in range(j):  # 检测上侧是否都为己方稳定
-                                if board[i][site_d] != color:  # 检测上侧是否都为己方
-                                    break
-                                if self.stability(board, color, i, site_d) == 0:  # 检测上侧是否都为稳定
-                                    break
-                                if site_d == j - 1:
-                                    a += 1
-                                    b += 1
-                            if b == 0:  # 如果上侧不为己方稳定,检测下侧
-                                for site_e in range(j + 1, 8):  # 检测下侧是否都为己方稳定
-                                    if board[i][site_e] != color:  # 检测下侧是否都为己方
-                                        break
-                                    if self.stability(board, color, i, site_e) == 0:  # 检测下侧是否都为稳定
-                                        break
-                                    if site_e == 7:
-                                        a += 1
-                                        b += 1
-                            if b == 0:  # 如果上下都不全为己方稳定,检测整列是否为敌方稳定
-                                for site_f in range(8):
-                                    if site_f != j:
-                                        if board[i][site_f] != uncolor:  # 检测 是否都为敌方
-                                            break
-                                        if self.stability(board, uncolor, i, site_f) == 0:  # 检测整列是否都为敌方稳定
-                                            break
-                                        if site_f == 7:
-                                            a += 1
-
-
-        if a == 2:
-            return 1
-        else:
-            return 0
+        return (left_stable or right_stable) and (up_stable or down_stable)
 
     def getstable(self, board, color):
-        stable_total = 0
+        stable_count = 0
         for i in range(8):
             for j in range(8):
-                if board[i][j] == color:  # 遍历棋盘所有己方棋子
-                    stable_total += self.stability(board, color, i, j)
-        return stable_total
+                if board[i][j] == color and self.is_stable(board, color, i, j):
+                    stable_count += 1
+        return stable_count
 
-    def is_endgame(self, board):
+    def is_endgame(self, board, space = 10):
         #board = board._board
         empty_count = 0
         for row in board:
             for cell in row:
                 if cell == '.':
                     empty_count += 1
-        if empty_count <= 10:
+        if empty_count <= space:
             return empty_count
         else:
             return False
@@ -394,19 +388,27 @@ class AI(object):
         return best_score, best_action
 
     # 极大极小算法，限制深度
-    def minimax(self, board, opfor, depth=3):  # 其中 opfor 是假想敌、陪练
+    def minimax(self, board, opfor, depth=3, skipped=False):  # 其中 opfor 是假想敌、陪练
 
         color = self.color
+        best_score = -100000
+        best_action = None
 
         if depth == 0:
             return self.evaluate(board, color), None
 
         action_list = list(board.get_legal_actions(color))
         if not action_list:
-            return self.evaluate(board, color), None
+            if not skipped:
+                score, _ = opfor.minimax(board, self, depth, skipped=True)
+                score = -score
+            else:
+                score, _ = opfor.minimax(board, self, 0, skipped=True)
+                score = -score
 
-        best_score = -100000
-        best_action = None
+            if score > best_score:
+                best_score = score
+                best_action = None
 
         for action in action_list:
             flipped_pos = self.move(board, action)  # 落子
@@ -416,31 +418,39 @@ class AI(object):
             score = -score
             '''if depth>1:
                 print (depth)'''
-            if depth == 3:
+            if depth == 3 and not skipped:
                 action_letter = chr(ord('A') + action[1])
                 action_b = action_letter + str(action[0] + 1)
                 print('If intermediate AI action is '+ str(action_b) +  ', the board value will be', score,'.')
             if score > best_score:
                 best_score = score
                 best_action = action
-        if depth == 3:
+        if depth == 3 and not skipped:
             action_letter = chr(ord('A') + best_action[1])
             action_a = action_letter + str(best_action[0] + 1)
             print('The best action is '+ str(action_a) +  ', the best value is', best_score)
         return best_score, best_action
 
-    def minimax_n(self, board, opfor, depth=2):  # 无print版本,服务于预剪枝算法
+    def minimax_n(self, board, opfor, depth=2, skipped=False):  # 无print版本,服务于预剪枝算法
         color = self.color
 
+        best_score = -float('inf')  # 修改初始化值
+        best_action = None
         if depth == 0:
             return self.super_evaluate(board, color), None
 
         action_list = list(board.get_legal_actions(color))
         if not action_list:
-            return self.super_evaluate(board, color), None
+            if not skipped:
+                score, _ = opfor.minimax_n(board, self, depth, skipped=True)
+                score = -score
+            else:
+                score, _ = opfor.minimax_n(board, self, 0, skipped=True)
+                score = -score
 
-        best_score = -float('inf')  # 修改初始化值
-        best_action = None
+            if score > best_score:
+                best_score = score
+                best_action = None
 
         for action in action_list:
             flipped_pos = self.move(board, action)
@@ -455,19 +465,29 @@ class AI(object):
         return best_score, best_action
 
 
-    def minimax_alpha_beta(self, board, opfor, depth=5, alpha=-float('inf'), beta=float('inf')):
+    def minimax_alpha_beta(self, board, opfor, depth=5, alpha=-float('inf'), beta=float('inf'), skipped=False):
 
         color = self.color
+
+        best_score = -100000
+        best_action = None
 
         if depth == 0:
             return self.evaluate(board, color), None
 
         action_list = list(board.get_legal_actions(color))
         if not action_list:
-            return self.evaluate(board, color), None
+            if not skipped:
+                score, _ = opfor.minimax_alpha_beta(board, self, depth, -beta, -alpha, skipped=True)
+                score = -score
+            else:
+                score, _ = opfor.minimax_alpha_beta(board, self, 0, -beta, -alpha, skipped=True)
+                score = -score
 
-        best_score = -100000
-        best_action = None
+            if score > best_score:
+                best_score = score
+                best_action = None
+
 
         for action in action_list:
             flipped_pos = self.move(board, action)  # 落子
@@ -482,7 +502,7 @@ class AI(object):
                 best_action = action
 
             # 输出对应深度为5的动作和评分
-            if depth == 5:
+            if depth == 5 and not skipped:
                 action_letter = chr(ord('A') + action[1])
                 action_b = action_letter + str(action[0] + 1)
                 print('If advanced AI action is '+ str(action_b) +  ', the board value will be', score, '.')
@@ -492,25 +512,37 @@ class AI(object):
                 break
             alpha = max(alpha, best_score)
 
-        if depth == 5 and best_action:
+        if depth == 5 and best_action and not skipped:
             action_letter = chr(ord('A') + best_action[1])
             action_a = action_letter + str(best_action[0] + 1)
             print('The best action is '+ str(action_a) +  ', the best value is', best_score)
 
         return best_score, best_action
 
-    def Pre_Search_AlphaBeta(self, board, opfor, depthm=7, alpha=-float('inf'), beta=float('inf')):
+    def Pre_Search_AlphaBeta(self, board, opfor, depthm=7, alpha=-float('inf'), beta=float('inf'), skipped=False):
         color = self.color
+
+        best_score = -100000
+        best_action = None
 
         if depthm == 0:
             return self.super_evaluate(board, color), None
 
         action_list = list(board.get_legal_actions(color))
         if not action_list:
-            return self.super_evaluate(board, color), None
+            if not skipped:
+                score, _ = opfor.Pre_Search_AlphaBeta(board, self, depthm, -beta, -alpha, skipped = True)
+                score = -score
+            else:
+                score, _ = opfor.Pre_Search_AlphaBeta(board, self, 0, -beta, -alpha, skipped = True)
+                score = -score
 
-        # 预搜索优化，仅在深度大于5时执行
-        if depthm > 5:
+            if score > best_score:
+                best_score = score
+                best_action = None
+
+        # 预搜索优化，仅在深度大于6时执行
+        if depthm > 6:
             Values = []
             for action in action_list:
                 flipped_pos = self.move(board, action)
@@ -523,12 +555,15 @@ class AI(object):
             ind = np.argsort(Values)[-num_actions_to_consider:]  # 仅取最高的num_actions_to_consider个走法
             action_list = [action_list[i] for i in ind]
 
-        best_score = -100000
-        best_action = None
 
-        if len(action_list) ==1:
+
+        if depthm == 7 and len(action_list) ==1 and not skipped:
             best_action = action_list[0]
             best_score = 0
+            action_letter = chr(ord('A') + best_action[1])
+            action_a = action_letter + str(best_action[0] + 1)
+            print(f'Master AI only one action is {action_a}')
+            return best_score, best_action
         else:
             for action in action_list:
                 flipped_pos = self.move(board, action)
@@ -542,7 +577,7 @@ class AI(object):
                     best_score = score
                     best_action = action
 
-                if depthm == 7:
+                if depthm == 7 and not skipped:
                     action_letter = chr(ord('A') + action[1])
                     action_b = action_letter + str(action[0] + 1)
                     print(f'If master AI action is {action_b}, the board value will be {score}.')
@@ -552,26 +587,108 @@ class AI(object):
                     break
                 alpha = max(alpha, best_score)
 
-        if depthm == 7 and best_action:
+        if depthm == 7 and best_action and not skipped:
             action_letter = chr(ord('A') + best_action[1])
             action_a = action_letter + str(best_action[0] + 1)
             print(f'The best action is {action_a}, the best value is {best_score}')
 
         return best_score, best_action
 
-    def minimax_terminate(self, board, opfor, depth, maxdeep):
+    def nPre_Search_AlphaBeta(self, board, opfor, depthm=15, alpha=-float('inf'), beta=float('inf'), skipped=False):
+        color = self.color
+
+        best_score = -100000
+        best_action = None
+
+        if depthm == 0:
+            return self.nsuper_evaluate(board, color), None
+
+        action_list = list(board.get_legal_actions(color))
+        if not action_list:
+            if not skipped:
+                score, _ = opfor.Pre_Search_AlphaBeta(board, self, depthm, -beta, -alpha, skipped = True)
+                score = -score
+            else:
+                score, _ = opfor.Pre_Search_AlphaBeta(board, self, 0, -beta, -alpha, skipped = True)
+                score = -score
+
+            if score > best_score:
+                best_score = score
+                best_action = None
+
+        # 预搜索优化，仅在深度大于6时执行
+        if depthm > 6:
+            Values = []
+            for action in action_list:
+                flipped_pos = self.move(board, action)
+                value, _ = opfor.minimax_n(board, self, 2)  # 假定minimax_n是一个浅层搜索的版本
+                self.unmove(board, action, flipped_pos)
+                Values.append(value)
+                # 获取要考虑的走法数量，最多为8，但不超过实际走法数量
+            num_actions_to_consider = min(8, len(action_list))
+
+            ind = np.argsort(Values)[-num_actions_to_consider:]  # 仅取最高的num_actions_to_consider个走法
+            action_list = [action_list[i] for i in ind]
+
+
+
+        if depthm == 15 and len(action_list) ==1 and not skipped:
+            best_action = action_list[0]
+            best_score = 0
+            action_letter = chr(ord('A') + best_action[1])
+            action_a = action_letter + str(best_action[0] + 1)
+            print(f'Master AI only one action is {action_a}')
+            return best_score, best_action
+        else:
+            for action in action_list:
+                flipped_pos = self.move(board, action)
+                score, _ = opfor.nPre_Search_AlphaBeta(board, self, depthm - 1, -beta, -alpha)
+                self.unmove(board, action, flipped_pos)
+
+                score = -score
+
+                # 更新最佳得分和动作
+                if score > best_score:
+                    best_score = score
+                    best_action = action
+
+                if depthm == 15 and not skipped:
+                    action_letter = chr(ord('A') + action[1])
+                    action_b = action_letter + str(action[0] + 1)
+                    print(f'If master AI action is {action_b}, the board value will be {score}.')
+
+                # Alpha-Beta剪枝
+                if best_score >= beta:
+                    break
+                alpha = max(alpha, best_score)
+
+        if depthm == 15 and best_action and not skipped:
+            action_letter = chr(ord('A') + best_action[1])
+            action_a = action_letter + str(best_action[0] + 1)
+            print(f'The best action is {action_a}, the best value is {best_score}')
+
+        return best_score, best_action
+    def minimax_terminate(self, board, opfor, depth, maxdeep, skipped = False):
 
         color = self.color
+        best_score = -100000
+        best_action = None
 
         if depth == 0:
             return self.naive_evaluate(board, color), None
 
         action_list = list(board.get_legal_actions(color))
         if not action_list:
-            return self.naive_evaluate(board, color), None
+            if not skipped:
+                score, _ = opfor.minimax_terminate(board, self, depth, maxdeep, skipped = True)
+                score = -score
+            else:
+                score, _ = opfor.minimax_terminate(board, self, 0, maxdeep, skipped=True)
+                score = -score
 
-        best_score = -100000
-        best_action = None
+            if score > best_score:
+                best_score = score
+                best_action = None
 
         for action in action_list:
             flipped_pos = self.move(board, action)  # 落子
@@ -581,16 +698,19 @@ class AI(object):
             score = -score
             '''if depth>1:
                 print (depth)'''
-            if depth == maxdeep:
+            if depth == maxdeep and not skipped:
                 action_letter = chr(ord('A') + action[1])
                 action_b = action_letter + str(action[0] + 1)
                 print('[terminate]If AI action is '+ str(action_b) +  ', the board absolute value will be', score,'.')
             if score > best_score:
                 best_score = score
                 best_action = action
-        if depth == maxdeep:
-            action_letter = chr(ord('A') + best_action[1])
-            action_a = action_letter + str(best_action[0] + 1)
-            print('The best action is '+ str(action_a) +  ', the best value is', best_score)
+        if depth == maxdeep and not skipped:
+            if not best_action:
+                print("No action, skip!")
+            else:
+                action_letter = chr(ord('A') + best_action[1])
+                action_a = action_letter + str(best_action[0] + 1)
+                print('[terminate]The best action is '+ str(action_a) +  ', the best value is', best_score)
         return best_score, best_action
 
