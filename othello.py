@@ -222,7 +222,7 @@ class Game(object):
             action = self.current_player.think(self.board)  # 当前玩家对棋盘进行思考后，得到招法
 
             if action == 'regret':
-                if not self.history or (len(self.history) == 1 and self.history[0][3] == 'AIPlayer'):
+                if not self.history or (len(self.history) == 1 and self.history[0][2] == 'AIPlayer'):
                     print("No moves to regret!")
                     self.current_player = self.switch_player(player1, player2)
                     continue
