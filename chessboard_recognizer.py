@@ -3,6 +3,7 @@ from tkinter import messagebox, Toplevel
 from PIL import Image, ImageTk, ImageDraw
 import numpy as np
 import os
+import sys
 
 
 class ChessboardRecognizer:
@@ -176,15 +177,19 @@ def find_first_image(directory):
 
 
 def main():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    image_path = find_first_image(current_dir)
+    if getattr(sys, 'frozen', False):
+        application_path = os.path.dirname(sys.executable)
+    else:
+        application_path = os.path.dirname(os.path.abspath(__file__))
+
+    image_path = find_first_image(application_path)
 
     if image_path:
         recognizer = ChessboardRecognizer(image_path)
         recognizer.run()
-        return recognizer.board  # 返回识别的棋盘结果
+        return recognizer.board
     else:
-        print("No image files found in the directory.")
+        print("No image files found in the directory", application_path)
         return None
 
 

@@ -1,6 +1,7 @@
-
 *.pyc
 openbook
 *.xml
 *.jpg
 *.pyc
+build
+othello.spec
