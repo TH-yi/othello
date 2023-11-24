@@ -152,6 +152,17 @@ class Board(object):
             if self._can_fliped(p, color):
                 yield p
 
+    def init_with_recognized_result(self, recognized_board):
+        for i in range(8):
+            for j in range(8):
+                if recognized_board[i][j] == 'B':
+                    self._board[i][j] = 'X'
+                elif recognized_board[i][j] == 'W':
+                    self._board[i][j] = 'O'
+                else:
+                    self._board[i][j] = self.empty
+
+
 
 # 测试
 if __name__ == '__main__':

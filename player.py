@@ -28,12 +28,21 @@ class HumanPlayer(Player):
     def think(self, board):
         while True:
             action = input(
-                "Turn to '{}'. \nPlease input a point(such as 'D3'), input 'r' to regret: ".format(self.color))
+                "Turn to '{}'. \nPlease input a point(such as 'D3'), input 'r' to regret, input 'h' to help, input 's' to let AI solve the endgame: ".format(self.color))
             if action.lower() == 'r' or action.lower() == 'regret':
                 return 'regret'
+            elif action.lower() == 'h' or action.lower() == 'help':
+                return 'help'
+            elif action.lower() == 's' or action.lower() == 'solve':
+                return 'solve'
+            elif action.lower() == 'ss' or action.lower() == 'ssolve':
+                return 'switch_solve'
+            elif action.lower() == 'sw' or action.lower() == 'switch':
+                return 'switch'
+
 
             if len(action) < 2:  # Check to make sure action has at least two characters before extracting
-                print("Invalid action. Please try again.")
+                print("Invalid action command. Please try again.")
                 continue
 
             r, c = action[1], action[0].upper()

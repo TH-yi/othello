@@ -7,7 +7,7 @@ import copy
 from math import sqrt, log
 
 
-sys.setrecursionlimit(1000000000)
+sys.setrecursionlimit(100000)
 
 class AI(object):
     def __init__(self, level_ix=0):
@@ -15,14 +15,14 @@ class AI(object):
         self.level = ['beginner', 'basic','intermediate', 'advanced', 'master', 'crazy', 'customized', 'text'][level_ix]
         # 棋盘位置权重
         self.board_weights = [
-            [500, -25, 10, 5, 5, 10, -25, 500],
+            [300, -25, 10, 5, 5, 10, -25, 300],
             [-25, -45, 1, 1, 1, 1, -45, -25],
             [10, 1, 3, 2, 2, 3, 1, 10],
             [5, 1, 2, 1, 1, 2, 1, 5],
             [5, 1, 2, 1, 1, 2, 1, 5],
             [10, 1, 3, 2, 2, 3, 1, 10],
             [-25, -45, 1, 1, 1, 1, -45, -25],
-            [500, -25, 10, 5, 5, 10, -25, 500]
+            [300, -25, 10, 5, 5, 10, -25, 300]
         ]
         self.weight = [6, 11, 2, 2, 3]
         self.transposition_table = {}  # 置换表

@@ -1,3 +1,6 @@
 
 *.pyc
 openbook
+*.xml
+*.jpg
+*.pyc
