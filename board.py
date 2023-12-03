@@ -1,3 +1,4 @@
+import numpy as np
 class Board(object):
     def __init__(self):
         self.skip = 0
@@ -5,6 +6,7 @@ class Board(object):
         self._board = [[self.empty for _ in range(8)] for _ in range(8)]  # 规格：8*8
         self._board[3][4], self._board[4][3] = 'X', 'X'
         self._board[3][3], self._board[4][4] = 'O', 'O'
+        self.color = 'X' #for mcts plus
 
     # 增加 Board[][] 索引语法
     def __getitem__(self, index):
@@ -56,13 +58,15 @@ class Board(object):
 
     # 落子
     def _move(self, action, color):
-        x, y = action
-        self._board[x][y] = color
+        #x, y = action
+        #self._board[x][y] = color
 
         return self._flip(action, color)
 
     # 翻子（返回list）
-    def _flip(self, action, color):
+    def _flip(self, action, color = None):
+        if not color:
+            color = self.color
         flipped_pos = []
 
         for line in self._get_lines(action):
@@ -75,7 +79,7 @@ class Board(object):
 
         for p in flipped_pos:
             self._board[p[0]][p[1]] = color
-
+        self._board[action[0]][action[1]] = color
         return flipped_pos
 
     # 撤销
@@ -135,7 +139,10 @@ class Board(object):
         return [False, True][len(flipped_pos) > 0]
 
     # 合法走法
-    def get_legal_actions(self, color):
+    def get_legal_actions(self, color = None):
+        if not color:
+            color = self.color
+
         uncolor = ['X', 'O'][color == 'X']
         uncolor_near_points = []  # 反色邻近的空位
 
@@ -162,6 +169,37 @@ class Board(object):
                 else:
                     self._board[i][j] = self.empty
 
+    def pieces_index(self):
+        '''
+        找寻黑白棋子位置并计数
+        '''
+        self.black_count = 0
+        self.white_count = 0
+        self.board1 = np.zeros((8,8))       #为当前玩家创建空的8x8数组
+        self.board2 = np.zeros((8,8))       #为对方玩家创建空的8x8数组
+        for i in range(8):
+            for j in range(8):
+                if self.color == 'X':
+                    if self._board[i][j] == 'X':
+                        self.board1[i][j] = 1
+                        self.black_count = self.black_count + 1
+                    elif self._board[i][j] == 'O':
+                        self.board2[i][j] = 1
+                        self.white_count = self.white_count + 1
+                else:
+                    if self._board[i][j] == 'O':
+                        self.board1[i][j] = 1
+                        self.white_count = self.white_count + 1
+                    elif self._board[i][j] == 'X':
+                        self.board2[i][j] = 1
+                        self.black_count = self.black_count + 1
+    def current_state(self):
+        '''
+        棋盘当前状态（包含当前选手棋盘和对方选手两个界面）
+        '''
+        current_state = np.dstack((self.board1,self.board2))
+        current_state = current_state.transpose((2,0,1))
+        return current_state
 
 
 # 测试

@@ -204,9 +204,9 @@ class Game(object):
             else:
                 # Skip invalid moves
                 continue
-        result = ' '.join(converted_history)
-        print(result)
-        return ' '.join(converted_history)
+        result = ''.join(converted_history)
+        #print(result)
+        return result
     # 运行游戏
     def run(self):
         # 生成两个玩家
@@ -290,6 +290,55 @@ class Game(object):
         c = input("Press Enter to exit.")
         sys.exit(0)
 
+    def selfplay_run_plus(self):
+        '''
+        自我对抗时通过减少print来加速对抗运行
+        并且对棋盘数据进行收集
+        '''
+        #self.board.locations()
+        self.playdata_state = []
+        self.playdata_prob = []
+        self.playdata_who = []  # 当前玩家指示器，1为黑棋，0为白棋
+        self.playdata_win = []
+        action_and_mctsprob = self.current_player.move1(self.board)
+        self.board.pieces_index()
+        self.playdata_state.append(self.board.current_state())
+        self.playdata_prob.append(action_and_mctsprob[1])
+        self.playdata_who.append(1)
+        self.board.reversi_pieces(action_and_mctsprob[0])
+        self.board.pieces_index()
+        self.switch_player()
+        switch = 0
+        while switch != 2:
+            if len(self.board.locations()) == 0:
+                switch += 1
+            else:
+                switch = 0
+                self.board.pieces_index()
+                #self.board.locations()
+                action_and_mctsprob = self.current_player.move1(self.board)
+                self.playdata_state.append(self.board.current_state())
+                self.playdata_prob.append(action_and_mctsprob[1])
+                if self.board.color == 'X':
+                    self.playdata_who.append(1)
+                else:
+                    self.playdata_who.append(0)
+                self.board.reversi_pieces(action_and_mctsprob[0])
+                self.board.pieces_index()
+                #self.board.locations()
+
+            self.switch_player()
+        self.board.pieces_index()
+
+        win = self.board.win()
+
+        for i in range(len(self.playdata_who)):
+            if self.playdata_who[i] == 1:
+                self.playdata_win.append(win)
+            else:
+                self.playdata_win.append(-win)
+        full_playdata = list(zip(self.playdata_state, self.playdata_prob, self.playdata_win))
+        self.playdata = full_playdata
 
 if __name__ == '__main__':
 

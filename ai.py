@@ -5,6 +5,8 @@ import threading
 from board import Board
 import copy
 from math import sqrt, log
+from mcts_plus import Mcts_plus
+from policy_value_net import PolicyValueNet
 
 
 sys.setrecursionlimit(100000)
@@ -12,7 +14,9 @@ sys.setrecursionlimit(100000)
 class AI(object):
     def __init__(self, level_ix=0):
         # 玩家等级
-        self.level = ['beginner', 'basic','intermediate', 'advanced', 'master', 'crazy', 'customized', 'text'][level_ix]
+        #self.level = ['beginner', 'basic','intermediate', 'advanced', 'master', 'crazy', 'customized', 'mcts_plus'][level_ix]
+        self.level = ['beginner', 'MCT', 'intermediate', 'advanced', 'master', 'mcts_plus', 'customized', 'text'][
+            level_ix]
         # 棋盘位置权重
         self.board_weights = [
             [300, -25, 10, 5, 5, 10, -25, 300],
@@ -51,64 +55,72 @@ class AI(object):
     # AI的大脑
     def brain(self, board, opponent, depth):
         if self.level == 'beginner':  # 入门水平
-            ten_ending = self.is_endgame(board, space = 7)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            empty_count = self.count_empty(board)
+            if empty_count <= 7:
+                print("Terminate mode, space left:", empty_count)
+                _, action = self.minimax_terminate(board, opponent, empty_count, empty_count)
             else:
                 _, action = self.naive(board)
         elif self.level == 'basic':  # 初级水平
-            ten_ending = self.is_endgame(board, space = 8)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            empty_count = self.count_empty(board)
+            if empty_count <= 8:
+                print("Terminate mode, space left:", empty_count)
+                _, action = self.minimax_terminate(board, opponent, empty_count, empty_count)
             else:
                 _, action = self.greedy(board)
         elif self.level == 'intermediate':  # 中级水平
-            ten_ending = self.is_endgame(board, space = 9)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            empty_count = self.count_empty(board)
+            if empty_count <= 9:
+                print("Terminate mode, space left:", empty_count)
+                _, action = self.minimax_terminate(board, opponent, empty_count, empty_count)
             else:
                 _, action = self.minimax(board, opponent, depth + 1)
         elif self.level == 'advanced':  # 高级水平
-            ten_ending = self.is_endgame(board)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            empty_count = self.count_empty(board)
+            if empty_count <= 10:
+                print("Terminate mode, space left:", empty_count)
+                _, action = self.minimax_terminate(board, opponent, empty_count, empty_count)
             else:
                 _, action = self.minimax_alpha_beta(board, opponent, depth + 3)
         elif self.level == 'master':  # 大师水平
-            ten_ending = self.is_endgame(board)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            empty_count = self.count_empty(board)
+            if empty_count <= 10:
+                print("Terminate mode, space left:", empty_count)
+                _, action = self.minimax_terminate(board, opponent, empty_count, empty_count)
             else:
                 _, action = self.Pre_Search_AlphaBeta(board, opponent, depth + 5)
 
-        elif self.level == 'crazy':
-            ten_ending = self.is_endgame(board)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+        elif self.level == 'MCT':
+            empty_count = self.count_empty(board)
+            if empty_count <= 10:
+                print("Terminate mode, space left:", empty_count)
+                _, action = self.minimax_terminate(board, opponent, empty_count, empty_count)
             else:
                 action = self.MCTS(board, 3000)
 
         elif self.level == 'customized':  # Check for customized level
-            ten_ending = self.is_endgame(board)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+            empty_count = self.count_empty(board)
+            if empty_count <= 10:
+                print("Terminate mode, space left:", empty_count)
+                _, action = self.minimax_terminate(board, opponent, empty_count, empty_count)
             else:
                 action = self.MCTS(board, self.custom_iterations)  # Use the custom number of iterations
 
-        elif self.level == 'text':  # 大师水平
-            ten_ending = self.is_endgame(board)
-            if ten_ending:
-                print("Terminate mode, space left:", ten_ending)
-                _, action = self.minimax_terminate(board, opponent, ten_ending, ten_ending)
+        elif self.level == 'mcts_plus':  # Check for customized level
+            empty_count = self.count_empty(board)
+            if empty_count <= 10:
+                print("Terminate mode, space left:", empty_count)
+                _, action = self.minimax_terminate(board, opponent, empty_count, empty_count)
             else:
-                _, action = self.nPre_Search_AlphaBeta(board, opponent, 15)
+                action = self.mct_plus(board)  # Use the custom number of iterations
+
+        elif self.level == 'text':  # 大师水平
+            empty_count = self.count_empty(board)
+            if empty_count <= 10:
+                print("Terminate mode, space left:", empty_count)
+                _, action = self.minimax_terminate(board, opponent, empty_count, empty_count)
+            else:
+                _, action = self.nPre_Search_AlphaBeta(board, opponent, depth + 3)
         # assert action is not None, 'action is None'
         return action
 
@@ -118,13 +130,13 @@ class AI(object):
         legal_actions = list(root.state.get_legal_actions(self.color))
         # Check for 0 or 1 legal action
         if len(legal_actions) == 0:
-            print('For crazy AI level ' + str(level_crz) + ', action is skip!')
+            print('For MCT AI level ' + str(level_crz) + ', action is skip!')
             return None
         elif len(legal_actions) == 1:
             action_only = legal_actions[0]
             action_letter = chr(ord('A') + action_only[1])
             action_b = action_letter + str(action_only[0] + 1)
-            print('For crazy AI level ' + str(level_crz) + ', the only action is ' + str(action_b))
+            print('For MCT AI level ' + str(level_crz) + ', the only action is ' + str(action_b))
             return action_only
 
         for _ in range(iterations):
@@ -181,10 +193,10 @@ class AI(object):
                 action_only = sorted(root.children, key=lambda c: c.visits)[-1].action
                 action_letter = chr(ord('A') + action_only[1])
                 action_b = action_letter + str(action_only[0] + 1)
-                print('For crazy AI level ' + str(level_crz) + ', the only action is ' + str(action_b))
+                print('For MCT AI level ' + str(level_crz) + ', the only action is ' + str(action_b))
                 return action_only
             except:
-                print('For crazy AI level ' + str(level_crz) + ', action is skip!')
+                print('For MCT AI level ' + str(level_crz) + ', action is skip!')
                 return None
         else:
             for idx, (action, weight) in enumerate(weighted_actions):
@@ -195,7 +207,7 @@ class AI(object):
                 formatted_weight = "{:.3%}".format(weight)
                 action_letter = chr(ord('A') + action[1])
                 action_b = action_letter + str(action[0] + 1)
-                print('For crazy AI level ' + str(level_crz) + ', action '+ str(action_b) +  ' weight is', formatted_weight)
+                print('For MCT AI level ' + str(level_crz) + ', action '+ str(action_b) +  ' weight is', formatted_weight)
 
             best_action, best_weight = weighted_actions[0]
             best_action_letter = chr(ord('A') + best_action[1])
@@ -206,6 +218,8 @@ class AI(object):
 
     # 评估函数（仅根据棋盘位置权重）
     def evaluate(self, board, color):
+        if self.count_board(board, color):
+            return self.count_board(board, color)
         uncolor = ['X', 'O'][color == 'X']
         score = 0
         for i in range(8):
@@ -219,6 +233,8 @@ class AI(object):
         return score
 
     def naive_evaluate(self, board, color):
+        if self.count_board(board, color):
+            return self.count_board(board, color)
         uncolor = ['X', 'O'][color == 'X']
         score = 0
         for i in range(8):
@@ -228,9 +244,29 @@ class AI(object):
                 elif board[i][j] == uncolor:
                     score -= 1
         return score
+    
+    def count_board(self, board, color):
+        uncolor = ['X', 'O'][color == 'X']
+        myscore = 0
+        opscore = 0
+        for i in range(8):
+            for j in range(8):
+                if board[i][j] == color:
+                    myscore += 1
+                elif board[i][j] == uncolor:
+                    opscore -= 1
+        if myscore == 0:
+            return float('-inf')
+        elif opscore == 0:
+            return float('inf')
+        else:
+            return None
 
     def super_evaluate(self, board, color):
         uncolor = ['X', 'O'][color == 'X']
+        if self.count_board(board, color):
+            return self.count_board(board, color)
+
         # 计算前沿子
         frontier = 0
         for row in range(8):
@@ -251,11 +287,13 @@ class AI(object):
 
         rv = frontier * self.weight[2] +  parity * self.weight[4]
         super_score = int(rv) + int(self.evaluate(board, color)) + 7 * int((self.getstable(board, color))) - 7 * int((self.getstable(board, uncolor))) + 15* int(
-            self.getmoves(board, color))- 15* int(self.getmoves(board, uncolor))
+            self.getmoves(board, color))- 30* int(self.getmoves(board, uncolor))
 
         return super_score
 
     def nsuper_evaluate(self, board, color):
+        if self.count_board(board, color):
+            return self.count_board(board, color)
         uncolor = ['X', 'O'][color == 'X']
 
         # 计算棋盘上的棋子数量来确定轮数
@@ -327,6 +365,16 @@ class AI(object):
             return empty_count
         else:
             return False
+        
+    def count_empty(self, board):
+        #board = board._board
+        empty_count = 0
+        for row in board:
+            for cell in row:
+                if cell == '.':
+                    empty_count += 1
+        return empty_count
+        
 
     def naive(self, board): #幼稚贪婪算法
         color = self.color
@@ -594,78 +642,55 @@ class AI(object):
 
         return best_score, best_action
 
-    def nPre_Search_AlphaBeta(self, board, opfor, depthm=15, alpha=-float('inf'), beta=float('inf'), skipped=False):
+    def nPre_Search_AlphaBeta(self, board, opfor, depth=5, alpha=-float('inf'), beta=float('inf'), skipped=False):
         color = self.color
 
         best_score = -100000
         best_action = None
 
-        if depthm == 0:
-            return self.nsuper_evaluate(board, color), None
+        if depth == 0:
+            return self.super_evaluate(board, color), None
 
         action_list = list(board.get_legal_actions(color))
         if not action_list:
             if not skipped:
-                score, _ = opfor.Pre_Search_AlphaBeta(board, self, depthm, -beta, -alpha, skipped = True)
+                score, _ = opfor.minimax_alpha_beta(board, self, depth, -beta, -alpha, skipped=True)
                 score = -score
             else:
-                score, _ = opfor.Pre_Search_AlphaBeta(board, self, 0, -beta, -alpha, skipped = True)
+                score, _ = opfor.minimax_alpha_beta(board, self, 0, -beta, -alpha, skipped=True)
                 score = -score
 
             if score > best_score:
                 best_score = score
                 best_action = None
 
-        # 预搜索优化，仅在深度大于6时执行
-        if depthm > 6:
-            Values = []
-            for action in action_list:
-                flipped_pos = self.move(board, action)
-                value, _ = opfor.minimax_n(board, self, 2)  # 假定minimax_n是一个浅层搜索的版本
-                self.unmove(board, action, flipped_pos)
-                Values.append(value)
-                # 获取要考虑的走法数量，最多为8，但不超过实际走法数量
-            num_actions_to_consider = min(8, len(action_list))
+        for action in action_list:
+            flipped_pos = self.move(board, action)  # 落子
+            score, _ = opfor.minimax_alpha_beta(board, self, depth - 1, -beta, -alpha)  # 深度优先，轮到陪练
+            self.unmove(board, action, flipped_pos)  # 回溯
 
-            ind = np.argsort(Values)[-num_actions_to_consider:]  # 仅取最高的num_actions_to_consider个走法
-            action_list = [action_list[i] for i in ind]
+            score = -score
 
+            # 更新最佳得分和动作
+            if score > best_score:
+                best_score = score
+                best_action = action
 
+            # 输出对应深度为5的动作和评分
+            if depth == 5 and not skipped:
+                action_letter = chr(ord('A') + action[1])
+                action_b = action_letter + str(action[0] + 1)
+                print('If advanced AI action is ' + str(action_b) + ', the board value will be', score, '.')
 
-        if depthm == 15 and len(action_list) ==1 and not skipped:
-            best_action = action_list[0]
-            best_score = 0
+            # Alpha-Beta剪枝
+            if best_score >= beta:
+                break
+            alpha = max(alpha, best_score)
+
+        if depth == 5 and best_action and not skipped:
             action_letter = chr(ord('A') + best_action[1])
             action_a = action_letter + str(best_action[0] + 1)
-            print(f'Master AI only one action is {action_a}')
-            return best_score, best_action
-        else:
-            for action in action_list:
-                flipped_pos = self.move(board, action)
-                score, _ = opfor.nPre_Search_AlphaBeta(board, self, depthm - 1, -beta, -alpha)
-                self.unmove(board, action, flipped_pos)
-
-                score = -score
-
-                # 更新最佳得分和动作
-                if score > best_score:
-                    best_score = score
-                    best_action = action
-
-                if depthm == 15 and not skipped:
-                    action_letter = chr(ord('A') + action[1])
-                    action_b = action_letter + str(action[0] + 1)
-                    print(f'If master AI action is {action_b}, the board value will be {score}.')
-
-                # Alpha-Beta剪枝
-                if best_score >= beta:
-                    break
-                alpha = max(alpha, best_score)
-
-        if depthm == 15 and best_action and not skipped:
-            action_letter = chr(ord('A') + best_action[1])
-            action_a = action_letter + str(best_action[0] + 1)
-            print(f'The best action is {action_a}, the best value is {best_score}')
+            print('The best action is ' + str(action_a) + ', the best value is', best_score)
 
         return best_score, best_action
     def minimax_terminate(self, board, opfor, depth, maxdeep, skipped = False):
@@ -714,3 +739,13 @@ class AI(object):
                 print('[terminate]The best action is '+ str(action_a) +  ', the best value is', best_score)
         return best_score, best_action
 
+    def mct_plus(self, board):
+        board.color = self.color
+        action_list = list(board.get_legal_actions(self.color))
+        if not action_list:
+            return None
+        action1 = Mcts_plus(board, policy_value_net.policy_value_fn, 400, self.color).mcts_run()
+        action = action1[0]
+        return action
+
+policy_value_net = PolicyValueNet(model_file='./best_policy.model')
